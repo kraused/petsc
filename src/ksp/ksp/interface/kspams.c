@@ -1,13 +1,13 @@
 #include <petsc-private/kspimpl.h>  /*I "petscksp.h" I*/
+#if defined(PETSC_HAVE_AMS)
+#include <petscviewerams.h>
 
 typedef struct {
   PetscViewer viewer;
   PetscInt    neigs;
   PetscReal   *eigi;
   PetscReal   *eigr;
-#if defined(PETSC_HAVE_AMS)
   AMS_Memory amem;
-#endif
 } KSPMonitor_AMS;
 
 #undef __FUNCT__
@@ -19,7 +19,7 @@ typedef struct {
 
    Input Arguments:
 +  ksp - KSP to monitor
--  amscommname - name of AMS communicator to use
+-  amscommname - name of AMS communicator to use, if NULL uses default "PETSc" communicator
 
    Output Arguments:
 .  ctx - context for monitor
@@ -34,11 +34,14 @@ PetscErrorCode KSPMonitorAMSCreate(KSP ksp,const char *amscommname,void **ctx)
   KSPMonitor_AMS *mon;
 
   PetscFunctionBegin;
-  ierr = PetscNewLog(ksp,KSPMonitor_AMS,&mon);CHKERRQ(ierr);
-#if defined(PETSC_HAVE_AMS)
-  ierr      = PetscViewerAMSOpen(PetscObjectComm((PetscObject)ksp),amscommname,&mon->viewer);CHKERRQ(ierr);
+  ierr      = PetscNewLog(ksp,KSPMonitor_AMS,&mon);CHKERRQ(ierr);
+  if (!amscommname) {
+    mon->viewer = PETSC_VIEWER_AMS_(PetscObjectComm((PetscObject)ksp));
+    if (!mon->viewer) SETERRQ(PetscObjectComm((PetscObject)ksp),PETSC_ERR_PLIB,"Cannot create AMS default communicator");CHKERRQ(ierr);
+  } else {
+    ierr = PetscViewerAMSOpen(PetscObjectComm((PetscObject)ksp),amscommname,&mon->viewer);CHKERRQ(ierr);
+  }
   mon->amem = -1;
-#endif
   *ctx = (void*)mon;
   PetscFunctionReturn(0);
 }
@@ -63,12 +66,10 @@ PetscErrorCode KSPMonitorAMSDestroy(void **ctx)
   PetscErrorCode ierr;
 
   PetscFunctionBegin;
-#if defined(PETSC_HAVE_AMS)
   if (mon->amem != -1) {
     ierr      = AMS_Memory_destroy(mon->amem);CHKERRQ(ierr);
     mon->amem = -1;
   }
-#endif
   ierr      = PetscViewerDestroy(&mon->viewer);CHKERRQ(ierr);
   ierr      = PetscFree(mon->eigr);CHKERRQ(ierr);
   mon->eigi = NULL;
@@ -97,7 +98,6 @@ PetscErrorCode KSPMonitorAMSDestroy(void **ctx)
 @*/
 PetscErrorCode KSPMonitorAMS(KSP ksp,PetscInt n,PetscReal rnorm,void *ctx)
 {
-#if defined(PETSC_HAVE_AMS)
   PetscErrorCode ierr;
   KSPMonitor_AMS *mon   = (KSPMonitor_AMS*)ctx;
   PetscViewer    viewer = mon->viewer;
@@ -133,9 +133,5 @@ PetscErrorCode KSPMonitorAMS(KSP ksp,PetscInt n,PetscReal rnorm,void *ctx)
 
   ierr = PetscInfo2(ksp,"KSP extreme singular values min=%G max=%G\n",emin,emax);CHKERRQ(ierr);
   PetscFunctionReturn(0);
-#else
-  PetscFunctionBegin;
-  SETERRQ(PetscObjectComm((PetscObject)ksp),PETSC_ERR_SUP,"Missing package AMS");
-  PetscFunctionReturn(0);
-#endif
 }
+#endif
