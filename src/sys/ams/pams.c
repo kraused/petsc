@@ -81,12 +81,22 @@ PetscErrorCode  PetscObjectAMSGrantAccess(PetscObject obj)
 @*/
 PetscErrorCode  PetscObjectAMSBlock(PetscObject obj)
 {
+  PetscErrorCode ierr;
+
   PetscFunctionBegin;
   PetscValidHeader(obj,1);
 
   if (!obj->amspublishblock) PetscFunctionReturn(0);
-  /* Eventually this will be fixed to check if the AMS client has changed the lock */
-  while (1);
+  ierr = PetscObjectAMSTakeAccess(obj);CHKERRQ(ierr);
+  while (obj->amsblock) {
+    ierr = PetscInfo(NULL,"Blocking on AMS\n");
+    ierr = PetscObjectAMSGrantAccess(obj);CHKERRQ(ierr);
+    ierr = PetscSleep(2.0);CHKERRQ(ierr);
+    ierr = PetscObjectAMSTakeAccess(obj);CHKERRQ(ierr);
+  }
+  ierr = PetscInfo(NULL,"Out of AMS block\n");
+  obj->amsblock = PETSC_TRUE;
+  ierr = PetscObjectAMSGrantAccess(obj);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
 
@@ -115,6 +125,7 @@ PetscErrorCode  PetscObjectAMSSetBlock(PetscObject obj,PetscBool flg)
   PetscFunctionBegin;
   PetscValidHeader(obj,1);
   obj->amspublishblock = flg;
+  obj->amsblock        = flg;
   PetscFunctionReturn(0);
 }
 
