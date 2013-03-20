@@ -1122,10 +1122,18 @@ PetscErrorCode DMPlexGetTransitiveClosure(DM dm, PetscInt p, PetscBool useCone, 
     for (t = 0; t < tmpSize; ++t) {
       const PetscInt i  = ((rev ? tmpSize-t : t) + off)%tmpSize;
       const PetscInt cp = tmp[i];
-      /* Must propogate orientation */
-      const PetscInt co = tmpO ? (rev ? -(tmpO[i]+1) : tmpO[i]) : 0;
+      /* Must propogate orientation: When we reverse orientation, we both reverse the direction of iteration and start at the other end of the chain. */
+      /* HACK: It is worse to get the size here, than to change the interpretation of -(*+1)
+       const PetscInt co = tmpO ? (rev ? -(tmpO[i]+1) : tmpO[i]) : 0; */
+      PetscInt       co = tmpO ? tmpO[i] : 0;
       PetscInt       c;
 
+      if (rev) {
+        PetscInt childSize, coff;
+        ierr = DMPlexGetConeSize(dm, cp, &childSize);CHKERRQ(ierr);
+        coff = tmpO[i] < 0 ? -(tmpO[i]+1) : tmpO[i];
+        co   = childSize ? -(((coff+childSize-1)%childSize)+1) : 0;
+      }
       /* Check for duplicate */
       for (c = 0; c < closureSize; c += 2) {
         if (closure[c] == cp) break;
@@ -2484,15 +2492,21 @@ PetscErrorCode DMPlexCreatePartitionClosure(DM dm, PetscSection pointSection, IS
 {
   /* const PetscInt  height = 0; */
   const PetscInt *partArray;
-  PetscInt       *allPoints, *partPoints = NULL;
-  PetscInt        rStart, rEnd, rank, maxPartSize = 0, newSize;
+  PetscInt       *allPoints, *packPoints;
+  PetscInt        rStart, rEnd, rank, pStart, pEnd, newSize;
   PetscErrorCode  ierr;
+  PetscBT         bt;
+  PetscSegBuffer  segpack,segpart;
 
   PetscFunctionBegin;
   ierr = PetscSectionGetChart(pointSection, &rStart, &rEnd);CHKERRQ(ierr);
   ierr = ISGetIndices(pointPartition, &partArray);CHKERRQ(ierr);
   ierr = PetscSectionCreate(PetscObjectComm((PetscObject)dm), section);CHKERRQ(ierr);
   ierr = PetscSectionSetChart(*section, rStart, rEnd);CHKERRQ(ierr);
+  ierr = DMPlexGetChart(dm,&pStart,&pEnd);CHKERRQ(ierr);
+  ierr = PetscBTCreate(pEnd-pStart,&bt);CHKERRQ(ierr);
+  ierr = PetscSegBufferCreate(sizeof(PetscInt),1000,&segpack);CHKERRQ(ierr);
+  ierr = PetscSegBufferCreate(sizeof(PetscInt),1000,&segpart);CHKERRQ(ierr);
   for (rank = rStart; rank < rEnd; ++rank) {
     PetscInt partSize = 0;
     PetscInt numPoints, offset, p;
@@ -2505,53 +2519,42 @@ PetscErrorCode DMPlexCreatePartitionClosure(DM dm, PetscSection pointSection, IS
 
       /* TODO Include support for height > 0 case */
       ierr = DMPlexGetTransitiveClosure(dm, point, PETSC_TRUE, &closureSize, &closure);CHKERRQ(ierr);
-      /* Merge into existing points */
-      if (partSize+closureSize > maxPartSize) {
-        PetscInt *tmpPoints;
-
-        maxPartSize = PetscMax(partSize+closureSize, 2*maxPartSize);
-        ierr = PetscMalloc(maxPartSize * sizeof(PetscInt), &tmpPoints);CHKERRQ(ierr);
-        ierr = PetscMemcpy(tmpPoints, partPoints, partSize * sizeof(PetscInt));CHKERRQ(ierr);
-        ierr = PetscFree(partPoints);CHKERRQ(ierr);
-
-        partPoints = tmpPoints;
+      for (c=0; c<closureSize; c++) {
+        PetscInt cpoint = closure[c*2];
+        if (!PetscBTLookupSet(bt,cpoint-pStart)) {
+          PetscInt *pt;
+          partSize++;
+          ierr = PetscSegBufferGet(&segpart,1,&pt);CHKERRQ(ierr);
+          *pt = cpoint;
+        }
       }
-      for (c = 0; c < closureSize; ++c) partPoints[partSize+c] = closure[c*2];
-      partSize += closureSize;
-
-      ierr = PetscSortRemoveDupsInt(&partSize, partPoints);CHKERRQ(ierr);
       ierr = DMPlexRestoreTransitiveClosure(dm, point, PETSC_TRUE, &closureSize, &closure);CHKERRQ(ierr);
     }
     ierr = PetscSectionSetDof(*section, rank, partSize);CHKERRQ(ierr);
+    ierr = PetscSegBufferGet(&segpack,partSize,&packPoints);CHKERRQ(ierr);
+    ierr = PetscSegBufferExtractTo(&segpart,packPoints);CHKERRQ(ierr);
+    ierr = PetscSortInt(partSize,packPoints);CHKERRQ(ierr);
+    for (p=0; p<partSize; p++) {ierr = PetscBTClear(bt,packPoints[p]-pStart);CHKERRQ(ierr);}
   }
+  ierr = PetscBTDestroy(&bt);CHKERRQ(ierr);
+  ierr = PetscSegBufferDestroy(&segpart);CHKERRQ(ierr);
+
   ierr = PetscSectionSetUp(*section);CHKERRQ(ierr);
   ierr = PetscSectionGetStorageSize(*section, &newSize);CHKERRQ(ierr);
   ierr = PetscMalloc(newSize * sizeof(PetscInt), &allPoints);CHKERRQ(ierr);
 
+  ierr = PetscSegBufferExtractInPlace(&segpack,&packPoints);CHKERRQ(ierr);
   for (rank = rStart; rank < rEnd; ++rank) {
-    PetscInt partSize = 0, newOffset;
-    PetscInt numPoints, offset, p;
+    PetscInt numPoints, offset;
 
-    ierr = PetscSectionGetDof(pointSection, rank, &numPoints);CHKERRQ(ierr);
-    ierr = PetscSectionGetOffset(pointSection, rank, &offset);CHKERRQ(ierr);
-    for (p = 0; p < numPoints; ++p) {
-      PetscInt  point   = partArray[offset+p], closureSize, c;
-      PetscInt *closure = NULL;
-
-      /* TODO Include support for height > 0 case */
-      ierr = DMPlexGetTransitiveClosure(dm, point, PETSC_TRUE, &closureSize, &closure);CHKERRQ(ierr);
-      /* Merge into existing points */
-      for (c = 0; c < closureSize; ++c) partPoints[partSize+c] = closure[c*2];
-      partSize += closureSize;
-
-      ierr = PetscSortRemoveDupsInt(&partSize, partPoints);CHKERRQ(ierr);
-      ierr = DMPlexRestoreTransitiveClosure(dm, point, PETSC_TRUE, &closureSize, &closure);CHKERRQ(ierr);
-    }
-    ierr = PetscSectionGetOffset(*section, rank, &newOffset);CHKERRQ(ierr);
-    ierr = PetscMemcpy(&allPoints[newOffset], partPoints, partSize * sizeof(PetscInt));CHKERRQ(ierr);
+    ierr = PetscSectionGetDof(*section, rank, &numPoints);CHKERRQ(ierr);
+    ierr = PetscSectionGetOffset(*section, rank, &offset);CHKERRQ(ierr);
+    ierr = PetscMemcpy(&allPoints[offset], packPoints, numPoints * sizeof(PetscInt));CHKERRQ(ierr);
+    packPoints += numPoints;
   }
+
+  ierr = PetscSegBufferDestroy(&segpack);CHKERRQ(ierr);
   ierr = ISRestoreIndices(pointPartition, &partArray);CHKERRQ(ierr);
-  ierr = PetscFree(partPoints);CHKERRQ(ierr);
   ierr = ISCreateGeneral(PetscObjectComm((PetscObject)dm), newSize, allPoints, PETSC_OWN_POINTER, partition);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
@@ -2780,7 +2783,11 @@ PetscErrorCode DMPlexDistribute(DM dm, const char partitioner[], PetscInt overla
       if (!rank) {ierr = PetscMemcpy(name, next->name, nameSize+1);CHKERRQ(ierr);}
       ierr = MPI_Bcast(name, nameSize+1, MPI_CHAR, 0, comm);CHKERRQ(ierr);
       ierr = PetscStrcmp(name, "depth", &isdepth);CHKERRQ(ierr);
-      if (isdepth) {ierr = PetscFree(name);CHKERRQ(ierr); continue;}
+      if (isdepth) {            /* skip because "depth" is not distributed */
+        ierr = PetscFree(name);CHKERRQ(ierr);
+        if (!rank) next = next->next;
+        continue;
+      }
       ierr           = PetscNew(struct _n_DMLabel, &newLabel);CHKERRQ(ierr);
       newLabel->name = name;
       /* Bcast numStrata (could filter for no points in stratum) */
@@ -2954,6 +2961,29 @@ PetscErrorCode DMPlexDistribute(DM dm, const char partitioner[], PetscInt overla
   ierr = PetscSFDestroy(&pointSF);CHKERRQ(ierr);
   ierr = DMSetFromOptions(*dmParallel);CHKERRQ(ierr);
   ierr = PetscLogEventEnd(DMPLEX_Distribute,dm,0,0,0);CHKERRQ(ierr);
+  PetscFunctionReturn(0);
+}
+
+#undef __FUNCT__
+#define __FUNCT__ "DMPlexInvertCells_Internal"
+/* This is to fix the tetrahedron orientation from TetGen */
+static PetscErrorCode DMPlexInvertCells_Internal(DM dm)
+{
+  PetscInt       cStart, cEnd, c;
+  PetscErrorCode ierr;
+
+  PetscFunctionBegin;
+  ierr = DMPlexGetHeightStratum(dm, 0, &cStart, &cEnd);CHKERRQ(ierr);
+  for (c = cStart; c < cEnd; ++c) {
+    const PetscInt *cone;
+    PetscInt        pa, pb;
+
+    ierr = DMPlexGetCone(dm, c, &cone);CHKERRQ(ierr);
+    pa   = cone[0];
+    pb   = cone[1];
+    ierr = DMPlexInsertCone(dm, c, 0, pb);CHKERRQ(ierr);
+    ierr = DMPlexInsertCone(dm, c, 1, pa);CHKERRQ(ierr);
+  }
   PetscFunctionReturn(0);
 }
 
@@ -3368,6 +3398,7 @@ PetscErrorCode DMPlexGenerate_Tetgen(DM boundary, PetscBool interpolate, DM *dm)
     const double  *meshCoords = out.pointlist;
 
     ierr = DMPlexCreateFromCellList(comm, dim, numCells, numVertices, numCorners, interpolate, cells, dim, meshCoords, dm);CHKERRQ(ierr);
+    ierr = DMPlexInvertCells_Internal(*dm);CHKERRQ(ierr);
     /* Set labels */
     for (v = 0; v < numVertices; ++v) {
       if (out.pointmarkerlist[v]) {
@@ -3488,6 +3519,7 @@ PetscErrorCode DMPlexRefine_Tetgen(DM dm, double *maxVolumes, DM *dmRefined)
     PetscBool      interpolate = depthGlobal > 1 ? PETSC_TRUE : PETSC_FALSE;
 
     ierr = DMPlexCreateFromCellList(comm, dim, numCells, numVertices, numCorners, interpolate, cells, dim, meshCoords, dmRefined);CHKERRQ(ierr);
+    ierr = DMPlexInvertCells_Internal(*dmRefined);CHKERRQ(ierr);
     /* Set labels */
     for (v = 0; v < numVertices; ++v) {
       if (out.pointmarkerlist[v]) {
@@ -3633,6 +3665,7 @@ PetscErrorCode DMPlexGenerate_CTetgen(DM boundary, PetscBool interpolate, DM *dm
     const double  *meshCoords = out->pointlist;
 
     ierr = DMPlexCreateFromCellList(comm, dim, numCells, numVertices, numCorners, interpolate, cells, dim, meshCoords, dm);CHKERRQ(ierr);
+    ierr = DMPlexInvertCells_Internal(*dm);CHKERRQ(ierr);
     /* Set labels */
     for (v = 0; v < numVertices; ++v) {
       if (out->pointmarkerlist[v]) {
@@ -3767,6 +3800,7 @@ PetscErrorCode DMPlexRefine_CTetgen(DM dm, PetscReal *maxVolumes, DM *dmRefined)
     PetscBool      interpolate = depthGlobal > 1 ? PETSC_TRUE : PETSC_FALSE;
 
     ierr = DMPlexCreateFromCellList(comm, dim, numCells, numVertices, numCorners, interpolate, cells, dim, meshCoords, dmRefined);CHKERRQ(ierr);
+    ierr = DMPlexInvertCells_Internal(*dmRefined);CHKERRQ(ierr);
     /* Set labels */
     for (v = 0; v < numVertices; ++v) {
       if (out->pointmarkerlist[v]) {
