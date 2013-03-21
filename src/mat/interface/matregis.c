@@ -47,6 +47,11 @@ PETSC_EXTERN PetscErrorCode MatCreate_SeqAIJCUSPARSE(Mat);
 PETSC_EXTERN PetscErrorCode MatCreate_MPIAIJCUSPARSE(Mat);
 #endif
 
+#if defined PETSC_HAVE_VIENNACL
+PETSC_EXTERN PetscErrorCode MatCreate_SeqAIJViennaCL(Mat);
+PETSC_EXTERN PetscErrorCode MatCreate_MPIAIJViennaCL(Mat);
+#endif
+
 #if defined PETSC_HAVE_FFTW
 PETSC_EXTERN PetscErrorCode MatCreate_FFTW(Mat);
 #endif
@@ -138,6 +143,13 @@ PetscErrorCode  MatRegisterAll(const char path[])
   ierr = MatRegisterDynamic(MATSEQAIJCUSPARSE,     path,"MatCreate_SeqAIJCUSPARSE",  MatCreate_SeqAIJCUSPARSE);CHKERRQ(ierr);
   ierr = MatRegisterDynamic(MATMPIAIJCUSPARSE,     path,"MatCreate_MPIAIJCUSPARSE",  MatCreate_MPIAIJCUSPARSE);CHKERRQ(ierr);
 #endif
+
+  #if defined PETSC_HAVE_VIENNACL
+  ierr = MatRegisterBaseName(MATAIJVIENNACL,MATSEQAIJVIENNACL,MATMPIAIJVIENNACL);CHKERRQ(ierr);
+  ierr = MatRegisterDynamic(MATSEQAIJVIENNACL,     path,"MatCreate_SeqAIJViennaCL",  MatCreate_SeqAIJViennaCL);CHKERRQ(ierr);
+  ierr = MatRegisterDynamic(MATMPIAIJVIENNACL,     path,"MatCreate_MPIAIJViennaCL",  MatCreate_MPIAIJViennaCL);CHKERRQ(ierr);
+#endif
+
 
 #if defined PETSC_HAVE_FFTW
   ierr = MatRegisterDynamic(MATFFTW,           path,"MatCreate_FFTW",        MatCreate_FFTW);CHKERRQ(ierr);
