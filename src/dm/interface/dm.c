@@ -1410,7 +1410,7 @@ PetscErrorCode  DMRefine(DM dm,MPI_Comm comm,DM *dmf)
 
 #undef __FUNCT__
 #define __FUNCT__ "DMRefineHookAdd"
-/*@
+/*@C
    DMRefineHookAdd - adds a callback to be run when interpolating a nonlinear problem to a finer grid
 
    Logically Collective
@@ -1442,6 +1442,8 @@ $    interphook(DM coarse,Mat interp,DM fine,void *ctx)
    This function is only needed if auxiliary data needs to be passed to fine grids while grid sequencing
 
    If this function is called multiple times, the hooks will be run in the order they are added.
+
+   This function is currently not available from Fortran.
 
 .seealso: DMCoarsenHookAdd(), SNESFASGetInterpolation(), SNESFASGetInjection(), PetscObjectCompose(), PetscContainerCreate()
 @*/
@@ -1520,7 +1522,7 @@ PetscErrorCode  DMGetRefineLevel(DM dm,PetscInt *level)
 
 #undef __FUNCT__
 #define __FUNCT__ "DMGlobalToLocalHookAdd"
-/*@
+/*@C
    DMGlobalToLocalHookAdd - adds a callback to be run when global to local is called
 
    Logically Collective
@@ -1556,6 +1558,8 @@ $    beginhook(DM fine,VecScatter out,VecScatter in,DM coarse,void *ctx)
 
    In order to compose with nonlinear preconditioning without duplicating storage, the hook should be implemented to
    extract the finest level information from its context (instead of from the SNES).
+
+   This function is currently not available from Fortran.
 
 .seealso: DMRefineHookAdd(), SNESFASGetInterpolation(), SNESFASGetInjection(), PetscObjectCompose(), PetscContainerCreate()
 @*/
@@ -1827,7 +1831,7 @@ PetscErrorCode  DMCoarsen(DM dm, MPI_Comm comm, DM *dmc)
 
 #undef __FUNCT__
 #define __FUNCT__ "DMCoarsenHookAdd"
-/*@
+/*@C
    DMCoarsenHookAdd - adds a callback to be run when restricting a nonlinear problem to the coarse grid
 
    Logically Collective
@@ -1864,6 +1868,8 @@ $    restricthook(DM fine,Mat mrestrict,Vec rscale,Mat inject,DM coarse,void *ct
 
    In order to compose with nonlinear preconditioning without duplicating storage, the hook should be implemented to
    extract the finest level information from its context (instead of from the SNES).
+
+   This function is currently not available from Fortran.
 
 .seealso: DMRefineHookAdd(), SNESFASGetInterpolation(), SNESFASGetInjection(), PetscObjectCompose(), PetscContainerCreate()
 @*/
@@ -1917,7 +1923,7 @@ PetscErrorCode DMRestrict(DM fine,Mat restrct,Vec rscale,Mat inject,DM coarse)
 
 #undef __FUNCT__
 #define __FUNCT__ "DMSubDomainHookAdd"
-/*@
+/*@C
    DMSubDomainHookAdd - adds a callback to be run when restricting a problem to the coarse grid
 
    Logically Collective
@@ -1945,6 +1951,8 @@ $    restricthook(DM fine,VecScatter out,VecScatter in,DM coarse,void *ctx)
 
    In order to compose with nonlinear preconditioning without duplicating storage, the hook should be implemented to
    extract the finest level information from its context (instead of from the SNES).
+
+   This function is currently not available from Fortran.
 
 .seealso: DMRefineHookAdd(), SNESFASGetInterpolation(), SNESFASGetInjection(), PetscObjectCompose(), PetscContainerCreate()
 @*/
