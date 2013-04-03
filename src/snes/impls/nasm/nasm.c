@@ -277,6 +277,7 @@ PetscErrorCode SNESNASMSetSubdomains(SNES snes,PetscInt n,SNES subsnes[],VecScat
   PetscFunctionBegin;
   ierr = PetscObjectQueryFunction((PetscObject)snes,"SNESNASMSetSubdomains_C",&f);CHKERRQ(ierr);
   ierr = (f)(snes,n,subsnes,iscatter,oscatter,gscatter);CHKERRQ(ierr);
+  if (f) {ierr = (f)(snes,n,subsnes,iscatter,oscatter,gscatter);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
 
@@ -362,7 +363,7 @@ PetscErrorCode SNESNASMGetSubdomains(SNES snes,PetscInt *n,SNES *subsnes[],VecSc
 
   PetscFunctionBegin;
   ierr = PetscObjectQueryFunction((PetscObject)snes,"SNESNASMGetSubdomains_C",&f);CHKERRQ(ierr);
-  ierr = (f)(snes,n,subsnes,iscatter,oscatter,gscatter);CHKERRQ(ierr);
+  if (f) {ierr = (f)(snes,n,subsnes,iscatter,oscatter,gscatter);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
 
@@ -411,7 +412,7 @@ PetscErrorCode SNESNASMGetSubdomainVecs(SNES snes,PetscInt *n,Vec **x,Vec **y,Ve
 
   PetscFunctionBegin;
   ierr = PetscObjectQueryFunction((PetscObject)snes,"SNESNASMGetSubdomainVecs_C",&f);CHKERRQ(ierr);
-  ierr = (f)(snes,n,x,y,b,xl);CHKERRQ(ierr);
+  if (f) {ierr = (f)(snes,n,x,y,b,xl);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
 
@@ -457,7 +458,7 @@ PetscErrorCode SNESNASMSetComputeFinalJacobian(SNES snes,PetscBool flg)
 
   PetscFunctionBegin;
   ierr = PetscObjectQueryFunction((PetscObject)snes,"SNESNASMSetComputeFinalJacobian_C",&f);CHKERRQ(ierr);
-  ierr = (f)(snes,flg);CHKERRQ(ierr);
+  if (f) {ierr = (f)(snes,flg);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
 
@@ -497,7 +498,7 @@ PetscErrorCode SNESNASMSetDamping(SNES snes,PetscReal dmp)
 
   PetscFunctionBegin;
   ierr = PetscObjectQueryFunction((PetscObject)snes,"SNESNASMSetDamping_C",(void (**)(void))&f);CHKERRQ(ierr);
-  ierr = (f)(snes,dmp);CHKERRQ(ierr);
+  if (f) {ierr = (f)(snes,dmp);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
 
@@ -536,7 +537,7 @@ PetscErrorCode SNESNASMGetDamping(SNES snes,PetscReal *dmp)
 
   PetscFunctionBegin;
   ierr = PetscObjectQueryFunction((PetscObject)snes,"SNESNASMGetDamping_C",(void (**)(void))&f);CHKERRQ(ierr);
-  ierr = (f)(snes,dmp);CHKERRQ(ierr);
+  if (f) {ierr = (f)(snes,dmp);CHKERRQ(ierr);}
   PetscFunctionReturn(0);
 }
 
@@ -856,6 +857,8 @@ PETSC_EXTERN PetscErrorCode SNESCreate_NASM(SNES snes)
 
   ierr = PetscObjectComposeFunction((PetscObject)snes,"SNESNASMSetSubdomains_C",SNESNASMSetSubdomains_NASM);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)snes,"SNESNASMGetSubdomains_C",SNESNASMGetSubdomains_NASM);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)snes,"SNESNASMSetDamping_C",SNESNASMSetDamping_NASM);CHKERRQ(ierr);
+  ierr = PetscObjectComposeFunction((PetscObject)snes,"SNESNASMGetDamping_C",SNESNASMGetDamping_NASM);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)snes,"SNESNASMGetSubdomainVecs_C",SNESNASMGetSubdomainVecs_NASM);CHKERRQ(ierr);
   ierr = PetscObjectComposeFunction((PetscObject)snes,"SNESNASMSetComputeFinalJacobian_C",SNESNASMSetComputeFinalJacobian_NASM);CHKERRQ(ierr);
   PetscFunctionReturn(0);
