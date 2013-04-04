@@ -49,7 +49,7 @@ PetscErrorCode  DMRegisterAll()
   ierr = DMRegister(DMCARTESIAN,  DMCreate_Cartesian);CHKERRQ(ierr);
 #endif
 #if defined(PETSC_HAVE_MOAB)
-  ierr = DMRegisterDynamic(DMMOAB,      path, "DMCreate_Moab",      DMCreate_Moab);CHKERRQ(ierr);
+  ierr = DMRegister(DMMOAB,       DMCreate_Moab);CHKERRQ(ierr);
 #endif
   PetscFunctionReturn(0);
 }

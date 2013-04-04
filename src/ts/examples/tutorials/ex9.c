@@ -223,7 +223,7 @@ PetscErrorCode RiemannListFind(PetscFunctionList flist,const char *name,RiemannF
   PetscErrorCode ierr;
 
   PetscFunctionBeginUser;
-  ierr = PetscFunctionListFind(flist,name,(void(**)(void))rsolve);CHKERRQ(ierr);
+  ierr = PetscFunctionListFind(flist,name,rsolve);CHKERRQ(ierr);
   if (!*rsolve) SETERRQ1(PETSC_COMM_SELF,1,"Riemann solver \"%s\" could not be found",name);
   PetscFunctionReturn(0);
 }
@@ -246,7 +246,7 @@ PetscErrorCode ReconstructListFind(PetscFunctionList flist,const char *name,Reco
   PetscErrorCode ierr;
 
   PetscFunctionBeginUser;
-  ierr = PetscFunctionListFind(flist,name,(void(**)(void))r);CHKERRQ(ierr);
+  ierr = PetscFunctionListFind(flist,name,r);CHKERRQ(ierr);
   if (!*r) SETERRQ1(PETSC_COMM_SELF,1,"Reconstruction \"%s\" could not be found",name);
   PetscFunctionReturn(0);
 }
