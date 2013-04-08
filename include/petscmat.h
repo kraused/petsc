@@ -931,8 +931,6 @@ typedef const char* MatOrderingType;
 PETSC_EXTERN PetscErrorCode MatGetOrdering(Mat,MatOrderingType,IS*,IS*);
 PETSC_EXTERN PetscErrorCode MatGetOrderingList(PetscFunctionList*);
 PETSC_EXTERN PetscErrorCode MatOrderingRegister(const char[],PetscErrorCode(*)(Mat,MatOrderingType,IS*,IS*));
-
-PETSC_EXTERN PetscErrorCode MatOrderingRegisterDestroy(void);
 PETSC_EXTERN PetscErrorCode MatOrderingRegisterAll(void);
 PETSC_EXTERN PetscBool         MatOrderingRegisterAllCalled;
 PETSC_EXTERN PetscFunctionList MatOrderingList;
@@ -1045,7 +1043,6 @@ PETSC_EXTERN PetscErrorCode MatColoringRegister(const char[],PetscErrorCode(*)(M
 PETSC_EXTERN PetscBool MatColoringRegisterAllCalled;
 
 PETSC_EXTERN PetscErrorCode MatColoringRegisterAll(void);
-PETSC_EXTERN PetscErrorCode MatColoringRegisterDestroy(void);
 PETSC_EXTERN PetscErrorCode MatColoringPatch(Mat,PetscInt,PetscInt,ISColoringValue[],ISColoring*);
 
 /*S
@@ -1135,7 +1132,6 @@ PETSC_EXTERN PetscErrorCode MatPartitioningRegister(const char[],PetscErrorCode 
 PETSC_EXTERN PetscBool MatPartitioningRegisterAllCalled;
 
 PETSC_EXTERN PetscErrorCode MatPartitioningRegisterAll(void);
-PETSC_EXTERN PetscErrorCode MatPartitioningRegisterDestroy(void);
 
 PETSC_EXTERN PetscErrorCode MatPartitioningView(MatPartitioning,PetscViewer);
 PETSC_EXTERN PetscErrorCode MatPartitioningSetFromOptions(MatPartitioning);
@@ -1254,7 +1250,6 @@ PETSC_EXTERN PetscErrorCode MatCoarsenRegister(const char[],PetscErrorCode (*)(M
 PETSC_EXTERN PetscBool MatCoarsenRegisterAllCalled;
 
 PETSC_EXTERN PetscErrorCode MatCoarsenRegisterAll(void);
-PETSC_EXTERN PetscErrorCode MatCoarsenRegisterDestroy(void);
 
 PETSC_EXTERN PetscErrorCode MatCoarsenView(MatCoarsen,PetscViewer);
 PETSC_EXTERN PetscErrorCode MatCoarsenSetFromOptions(MatCoarsen);
@@ -1509,7 +1504,6 @@ PETSC_EXTERN PetscErrorCode MatMFFDSetType(Mat,MatMFFDType);
 PETSC_EXTERN PetscErrorCode MatMFFDRegister(const char[],PetscErrorCode (*)(MatMFFD));
 
 PETSC_EXTERN PetscErrorCode MatMFFDRegisterAll(void);
-PETSC_EXTERN PetscErrorCode MatMFFDRegisterDestroy(void);
 PETSC_EXTERN PetscErrorCode MatMFFDDSSetUmin(Mat,PetscReal);
 PETSC_EXTERN PetscErrorCode MatMFFDWPSetComputeNormU(Mat,PetscBool );
 
