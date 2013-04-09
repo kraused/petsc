@@ -105,7 +105,7 @@ void f0_bd_u(const PetscScalar u[], const PetscScalar gradU[], const PetscReal x
   PetscInt       comp;
   PetscScalar    val = 0.0;
 
-  if ((fabs(x[0] - 1.0) < 1.0e-9) || (fabs(x[1] - 1.0) < 1.0e-9)) {val = 2.0;}
+  if ((fabs(x[0] - 1.0) < 1.0e-9) || (fabs(x[1] - 1.0) < 1.0e-9)) {val = -2.0;}
   for (comp = 0; comp < Ncomp; ++comp) f0[comp] = val;
 }
 
@@ -337,7 +337,7 @@ PetscErrorCode SetupSection(DM dm, AppCtx *user)
   PetscSection   section;
   const PetscInt numFields           = NUM_FIELDS;
   PetscInt       dim                 = user->dim;
-  const char    *bdLabel             = user->interpolate ? "boundary" : "marker";
+  const char    *bdLabel             = user->bcType == NEUMANN ? "boundary" : "marker";
   PetscInt       numBC               = 0;
   PetscInt       numComp[NUM_FIELDS] = {NUM_BASIS_COMPONENTS_0};
   PetscInt       bcFields[1]         = {0};
