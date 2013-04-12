@@ -167,7 +167,7 @@ def regression(args):
   '''Run complete regression suite'''
   ret   = 0
   gret  = 0
-  maker = builder.PETScMaker('examples.log')
+  maker = builder.PETScMaker('regression.log')
   maker.setup()
   haltOnError = False
 
