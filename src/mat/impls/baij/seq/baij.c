@@ -3844,7 +3844,7 @@ PetscErrorCode  MatCreateSeqBAIJWithArrays(MPI_Comm comm,PetscInt bs,PetscInt m,
 }
 
 #undef __FUNCT__
-#define __FUNCT__ "MatMPIBAIJRightDiagonalScaleBlockwise"
+#define __FUNCT__ "MatSeqBAIJRightDiagonalScaleBlockwise"
 PetscErrorCode  MatSeqBAIJRightDiagonalScaleBlockwise(Mat A, Vec rr)
 {
   Mat_SeqBAIJ       *a = (Mat_SeqBAIJ*)A->data;
