@@ -1,4 +1,4 @@
 petsc
 =====
 
-Fork of https://bitbucket.org/petsc/petsc
+Fork of https://github.com/petsc/petsc
