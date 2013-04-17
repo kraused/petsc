@@ -1650,4 +1650,10 @@ PETSC_EXTERN PetscErrorCode MatNestSetSubMat(Mat,PetscInt,PetscInt,Mat);
 
 PETSC_EXTERN PetscErrorCode MatChop(Mat,PetscReal);
 
+/*
+   Additional functionality for TechA
+*/
+PETSC_EXTERN PetscErrorCode MatSeqBAIJRightDiagonalScaleBlockwise(Mat,Vec);
+PETSC_EXTERN PetscErrorCode MatMPIBAIJRightDiagonalScaleBlockwise(Mat,Vec);
+
 #endif

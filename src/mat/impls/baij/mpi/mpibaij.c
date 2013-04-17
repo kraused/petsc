@@ -4075,3 +4075,61 @@ PetscErrorCode  MatCreateMPIBAIJWithArrays(MPI_Comm comm,PetscInt bs,PetscInt m,
   ierr = MatMPIBAIJSetPreallocationCSR(*mat,bs,i,j,a);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
+
+#undef __FUNCT__
+#define __FUNCT__ "MatMPIBAIJRightDiagonalScaleBlockwise"
+PetscErrorCode  MatMPIBAIJRightDiagonalScaleBlockwise(Mat mat, Vec rr)
+{
+  Mat_MPIBAIJ    *baij = (Mat_MPIBAIJ*)mat->data;
+  Mat            a     = baij->A, b = baij->B;
+  Mat_SeqBAIJ    *B    = (Mat_SeqBAIJ*)(baij->B->data);
+  PetscErrorCode ierr;
+  PetscInt       s1,s2,s3,bs2,nbs,i;
+  Vec            lvec;
+  VecScatter     ctx;
+  IS             from,to;
+  Vec            gvec;
+  PetscInt       bs = mat->rmap->bs,*stmp;
+
+  PetscFunctionBegin;
+  bs2 = B->bs2;
+  nbs = B->nbs;
+
+  ierr = MatGetLocalSize(mat,&s2,&s3);CHKERRQ(ierr);
+  ierr = VecGetLocalSize(rr,&s1);CHKERRQ(ierr);
+  if (s1!=bs*s3) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_SIZ,"right vector non-conforming local size");
+
+  ierr = VecCreateSeq(PETSC_COMM_SELF,bs2*nbs,&lvec);CHKERRQ(ierr);
+
+  /* create two temporary index sets for building scatter-gather */
+  ierr = ISCreateBlock(PETSC_COMM_SELF,bs2,nbs,baij->garray,PETSC_COPY_VALUES,&from);CHKERRQ(ierr);
+
+  ierr = PetscMalloc((nbs+1)*sizeof(PetscInt),&stmp);CHKERRQ(ierr);
+  for (i=0; i<nbs; i++) stmp[i] = i;
+  ierr = ISCreateBlock(PETSC_COMM_SELF,bs2,nbs,stmp,PETSC_OWN_POINTER,&to);CHKERRQ(ierr);
+
+  /* create temporary global vector to generate scatter context */
+  ierr = VecCreateMPIWithArray(PetscObjectComm((PetscObject)mat),1,bs*mat->cmap->n,bs*mat->cmap->N,NULL,&gvec);CHKERRQ(ierr);
+
+  ierr = VecScatterCreate(gvec,from,lvec,to,&ctx);CHKERRQ(ierr);
+
+  ierr = ISDestroy(&from);CHKERRQ(ierr);
+  ierr = ISDestroy(&to);CHKERRQ(ierr);
+  ierr = VecDestroy(&gvec);CHKERRQ(ierr);
+
+  /* Overlap communication with computation. */
+  ierr = VecScatterBegin(ctx,rr,lvec,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+
+  /* scale  the diagonal block */
+  ierr = MatSeqBAIJRightDiagonalScaleBlockwise(a,rr);CHKERRQ(ierr);
+
+  /* Do a scatter end and then right scale the off-diagonal block */
+  ierr = VecScatterEnd(ctx,rr,lvec,INSERT_VALUES,SCATTER_FORWARD);CHKERRQ(ierr);
+  ierr = MatSeqBAIJRightDiagonalScaleBlockwise(b,lvec);CHKERRQ(ierr);
+
+  ierr = VecDestroy(&lvec);CHKERRQ(ierr);
+  ierr = VecScatterDestroy(&ctx);CHKERRQ(ierr);
+
+  PetscFunctionReturn(0);
+}
+

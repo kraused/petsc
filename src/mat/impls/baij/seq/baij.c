@@ -1397,6 +1397,7 @@ PetscErrorCode MatDestroy_SeqBAIJ(Mat A)
   if (a->free_imax_ilen) {ierr = PetscFree2(a->imax,a->ilen);CHKERRQ(ierr);}
   ierr = PetscFree(a->solve_work);CHKERRQ(ierr);
   ierr = PetscFree(a->mult_work);CHKERRQ(ierr);
+  ierr = PetscFree(a->scale_work);CHKERRQ(ierr);
   ierr = PetscFree(a->sor_work);CHKERRQ(ierr);
   ierr = ISDestroy(&a->icol);CHKERRQ(ierr);
   ierr = PetscFree(a->saved_values);CHKERRQ(ierr);
@@ -3299,6 +3300,7 @@ PETSC_EXTERN PetscErrorCode MatCreate_SeqBAIJ(Mat B)
   b->diag               = 0;
   b->solve_work         = 0;
   b->mult_work          = 0;
+  b->scale_work         = 0;
   B->spptr              = 0;
   B->info.nz_unneeded   = (PetscReal)b->maxnz*b->bs2;
   b->keepnonzeropattern = PETSC_FALSE;
@@ -3418,6 +3420,7 @@ PetscErrorCode MatDuplicateNoCreate_SeqBAIJ(Mat C,Mat A,MatDuplicateOption cpval
   c->maxnz      = a->nz;         /* Since we allocate exactly the right amount */
   c->solve_work = 0;
   c->mult_work  = 0;
+  c->scale_work  = 0;
 
   c->compressedrow.use   = a->compressedrow.use;
   c->compressedrow.nrows = a->compressedrow.nrows;
@@ -3839,3 +3842,56 @@ PetscErrorCode  MatCreateSeqBAIJWithArrays(MPI_Comm comm,PetscInt bs,PetscInt m,
   ierr = MatAssemblyEnd(*mat,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
   PetscFunctionReturn(0);
 }
+
+#undef __FUNCT__
+#define __FUNCT__ "MatMPIBAIJRightDiagonalScaleBlockwise"
+PetscErrorCode  MatSeqBAIJRightDiagonalScaleBlockwise(Mat A, Vec rr)
+{
+  Mat_SeqBAIJ       *a = (Mat_SeqBAIJ*)A->data;
+  const PetscScalar *r,*ri;
+  MatScalar         *aa, *v, *work;
+  PetscErrorCode    ierr;
+  PetscInt          i,j,k,h,rn,M,n,mbs,tmp,bs,bs2,iai;
+  const PetscInt    *ai,*aj;
+
+  PetscFunctionBegin;
+  ai  = a->i;
+  aj  = a->j;
+  aa  = a->a;
+  n   = A->cmap->n;
+  bs  = A->rmap->bs;
+  mbs = a->mbs;
+  bs2 = a->bs2;
+    
+  if (!a->scale_work) {
+    ierr = PetscMalloc(bs2*sizeof(PetscScalar),&a->scale_work);CHKERRQ(ierr);
+  }
+  work = a->scale_work;
+
+  ierr = VecGetArrayRead(rr,&r);CHKERRQ(ierr);
+  ierr = VecGetLocalSize(rr,&rn);CHKERRQ(ierr);
+  if (rn != bs*n) SETERRQ(PETSC_COMM_SELF,PETSC_ERR_ARG_SIZ,"Right scaling vector wrong length");
+
+  for (i=0; i<mbs; i++) { /* for each block row */
+    iai = ai[i];
+    M   = ai[i+1] - iai;
+    v   = aa + bs2*iai;
+    for (j=0; j<M; j++) { /* for each block */
+      ri = r + bs2*aj[iai+j];
+      for (k=0; k<bs; k++)
+        for (h=0; h<bs; h++)
+        {
+          work[k+bs*h] = 0;
+          for (tmp=0; tmp<bs; tmp++) 
+            work[k+bs*h] += v[k+bs*tmp]*ri[bs*tmp+h];
+        }
+      for (k=0; k<bs2; k++) v[k] = work[k];
+      v += bs2;
+    }
+  }
+  ierr = VecRestoreArrayRead(rr,&r);CHKERRQ(ierr);
+  ierr = PetscLogFlops(mbs*M*bs*bs*bs2);CHKERRQ(ierr);
+
+  PetscFunctionReturn(0);
+}
+
